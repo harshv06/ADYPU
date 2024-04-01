@@ -14,8 +14,9 @@ app.use(routes)
 
 mongoose.connect(process.env.MONGO_URL).then(()=>{
     console.log("Succesfully connected to database")
-}).catch(()=>{
+}).catch((err)=>{
     console.log("Failed to connected to database")
+    console.log(err)
 })
 
 app.listen(process.env.PORT,()=>{
