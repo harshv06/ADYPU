@@ -6,6 +6,7 @@ const bodyParser=require('body-parser')
 
 require('dotenv').config()
 const app=express()
+app.use(express.urlencoded({extended:false}))
 const routes=require('./Routes')
 app.use(cors())
 app.use(bodyParser.json())
