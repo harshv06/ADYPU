@@ -105,15 +105,22 @@ routes.post("/v1/signin", async (req, res) => {
   }
 });
 
-routes.post("/v1/uploadPDF", upload.single("file"), async (req, res) => {
+routes.post("/v1/uploadPDF", upload.array("file",10), async (req, res) => {
   try {
-    const newPDF = new PDF({
-      name: req.file.originalname,
-      data: req.file.buffer,
-    });
-    await newPDF.save();
-    // console.log(req.file.originalname)
-    return res.status(201).send("PDF uploaded successfully.");
+    if(req.files){
+      let uploadPromise=req.files.map(file=>{
+        const newPDF = new PDF({
+          name: file.originalname,
+          data: file.buffer,
+        });
+        return newPDF.save();
+      })
+
+      await Promise.all(uploadPromise)
+      return res.status(201).send("PDFs uploaded successfully.");
+    }else{
+      return res.status(400).send("No files were uploaded.");
+    }
   } catch (error) {
     console.error(error);
     return res.status(500).send("Error uploading PDF.");
