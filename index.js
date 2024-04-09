@@ -4,11 +4,9 @@ const cors=require('cors')
 const json=require('jsonwebtoken')
 const bodyParser=require('body-parser')
 const path = require('path');
-// const fileUpload = require('express-fileupload');
 
 require('dotenv').config()
 const app=express()
-// app.use(fileUpload());
 app.use(express.urlencoded({extended:false}))
 const routes=require('./Routes')
 app.use(cors())
