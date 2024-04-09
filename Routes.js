@@ -5,16 +5,80 @@ const mailer = require("nodemailer");
 const User = require("./Models/User");
 const bcrypt = require("bcrypt");
 const multer = require("multer");
+const fs = require("fs-extra");
+const path = require("path");
+const { v4: uuidv4 } = require("uuid");
 
 const pdfSchema = new mongoose.Schema({
   name: String,
   data: Buffer,
 });
-
 const PDF = mongoose.model("PDF", pdfSchema);
 
-const storage = multer.memoryStorage();
+const generateUserId = () => uuidv4();
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const userId = req.userId;
+    const dest = path.join(__dirname, "uploads", userId);
+    // fs.ensureDir(dest);
+    fs.mkdirSync(dest, { recursive: true });
+    cb(null, dest);
+  },
+
+  filename: function (req, file, cb) {
+    cb(null, `${file.fieldname}-${Date.now()}-${file.originalname}`);
+  },
+});
 const upload = multer({ storage: storage });
+
+routes.get("/getPDF/:dir/:filename", (req, res) => {
+  // console.log("hi harsh");
+  // console.log(req.params)
+  const {dir,filename}=req.params
+  const filepath=path.join(__dirname,"uploads",dir,filename)
+  
+  if(fs.existsSync(filepath)){
+    res.setHeader('Content-Type', 'application/pdf');
+    const fileStream=fs.createReadStream(filepath)
+    fileStream.pipe(res)
+    console.log("DATA",fileStream.pipe(res))
+  }else{
+    return res.send("File Not Found")
+  }
+  // res.send("Ok");
+});
+
+routes.get("/list-all-pdfs", (req, res) => {
+  console.log("hi");
+  const uploadsDir = path.join(__dirname, "uploads");
+  fs.readdir(uploadsDir, (err, files) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Error listing files" });
+    }
+
+    const pdf=[]
+    const dir=[]
+    files.forEach(Files=>{
+      // console.log(Files)
+      dir.push({name:Files})
+      const folderPath=path.join(__dirname,"uploads",Files)
+      if(fs.statSync(folderPath).isDirectory()){
+        const files=fs.readdirSync(folderPath)
+        const pdfFilesInUserFolder = files.filter(file => file.endsWith('.pdf'))
+        pdfFilesInUserFolder.forEach(files=>{
+          pdf.push({user:Files,filename:files})
+        })
+      }
+    })
+
+    console.log(pdf)
+    res.json({data:pdf,dir:dir});
+
+  });
+
+});
 
 const sendVerificationMail = async (email, code) => {
   const transporter = mailer.createTransport({
@@ -105,26 +169,48 @@ routes.post("/v1/signin", async (req, res) => {
   }
 });
 
-routes.post("/v1/uploadPDF", upload.array("file",10), async (req, res) => {
-  try {
-    if(req.files){
-      let uploadPromise=req.files.map(file=>{
-        const newPDF = new PDF({
-          name: file.originalname,
-          data: file.buffer,
-        });
-        return newPDF.save();
-      })
-
-      await Promise.all(uploadPromise)
-      return res.status(201).send("PDFs uploaded successfully.");
-    }else{
-      return res.status(400).send("No files were uploaded.");
-    }
-  } catch (error) {
-    console.error(error);
-    return res.status(500).send("Error uploading PDF.");
+routes.post(
+  "/v1/uploadPDF",
+  (req, res, next) => {
+    req.userId = generateUserId();
+    next();
+  },
+  upload.array("file", 10),
+  async (req, res) => {
+    res.send("Files Uploaded");
   }
-  // return res.send("Done");
+);
+
+routes.get('/directories', (req, res) => {
+  const uploadsDir = path.join(__dirname, 'uploads');
+  
+  // Read the contents of the uploads directory
+  fs.readdir(uploadsDir, (err, files) => {
+      if (err) {
+          console.error(err);
+          return res.status(500).json({ message: 'Error listing directories' });
+      }
+
+      // Filter out only directories
+      const directories = files.filter(file => fs.statSync(path.join(uploadsDir, file)).isDirectory());
+      console.log(directories)
+      res.json(directories);
+  });
 });
+
+routes.get('/files/:directoryName', (req, res) => {
+  const directoryName = req.params.directoryName;
+  const directoryPath = path.join(__dirname, 'uploads', directoryName);
+
+  // Read the contents of the directory
+  fs.readdir(directoryPath, (err, files) => {
+      if (err) {
+          console.error(err);
+          return res.status(500).json({ message: 'Error listing files in directory' });
+      }
+
+      res.json(files);
+  });
+});
+
 module.exports = routes;
