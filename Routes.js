@@ -33,8 +33,6 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 routes.get("/getPDF/:dir/:filename", (req, res) => {
-  // console.log("hi harsh");
-  // console.log(req.params)
   const {dir,filename}=req.params
   const filepath=path.join(__dirname,"uploads",dir,filename)
   
@@ -61,7 +59,6 @@ routes.get("/list-all-pdfs", (req, res) => {
     const pdf=[]
     const dir=[]
     files.forEach(Files=>{
-      // console.log(Files)
       dir.push({name:Files})
       const folderPath=path.join(__dirname,"uploads",Files)
       if(fs.statSync(folderPath).isDirectory()){
