@@ -16,12 +16,12 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 
 
-mongoose.connect(process.env.MONGO_URL).then(()=>{
-    console.log("Succesfully connected to database")
-}).catch((err)=>{
-    console.log("Failed to connected to database")
-    console.log(err)
-})
+// mongoose.connect(process.env.MONGO_URL).then(()=>{
+//     console.log("Succesfully connected to database")
+// }).catch((err)=>{
+//     console.log("Failed to connected to database")
+//     console.log(err)
+// })
 
 app.listen(process.env.PORT,()=>{
     console.log("Server Started Successfully")
