@@ -126,6 +126,7 @@ routes.get("/getPDF/:dir/:filename", (req, res) => {
     console.log("DATA", fileStream.pipe(res));
   } else {
     return res.send("File Not Found");
+
   }
   // res.send("Ok");
 });
