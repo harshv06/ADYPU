@@ -306,4 +306,8 @@ routes.post("/api/uploadPdf", upload.single("pdf"), (req, res) => {
   res.status(200).send("File uploaded successfully");
 });
 
+routes.post("/TestAPI",(req,res)=>{
+  res.send("Api Working")
+})
+
 module.exports = routes;
