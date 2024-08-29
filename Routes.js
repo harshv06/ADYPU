@@ -321,4 +321,8 @@ routes.post("/TestAPI", (req, res) => {
   res.send("Api Working");
 });
 
+routes.post("/TestAPI2", (req, res) => {
+  res.send("Api Working");
+});
+
 module.exports = routes;
