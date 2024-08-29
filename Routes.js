@@ -1,9 +1,6 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const routes = express.Router();
-const mailer = require("nodemailer");
-const User = require("./Models/User");
-const bcrypt = require("bcrypt");
 const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
@@ -16,7 +13,7 @@ const pdfSchema = new mongoose.Schema({
   data: Buffer,
 });
 
-const PDF = mongoose.model("PDF", pdfSchema);
+// const PDF = mongoose.model("PDF", pdfSchema);
 const generateUserId = () => uuidv4();
 const userDataPath = path.join(__dirname, "userData.json");
 
@@ -44,22 +41,32 @@ const storage = multer.diskStorage({
     if (!req.userId) {
       req.userId = generateUserId(); // Generate or fetch a valid userId
     }
-
-    const dest = path.join(__dirname, "uploads", req.userId);
+    var fileName = file.originalname;
+    var modifiedFileName = fileName.split(".");
+    var finalFileName = modifiedFileName[0];
+    // modifiedFileName.map((word) => {
+    //   finalFileName = finalFileName.concat(word);
+    // });
+    // console.log(modifiedFileName);
+    const dest = path.join(__dirname, "uploads", finalFileName);
 
     // Check if the directory exists, if not, create it
     fs.mkdirSync(dest, { recursive: true });
-
     cb(null, dest);
   },
+
   filename: function (req, file, cb) {
     // Get the current date in YYYY-MM-DD format
     const date = new Date().toISOString().split("T")[0]; // e.g., "2024-08-13"
-
+    var fileName = file.originalname;
+    var modifiedFileName = fileName.split(" ");
+    var finalFileName = "";
+    modifiedFileName.map((word) => {
+      finalFileName = finalFileName.concat(word);
+    });
+    finalFileName = finalFileName.split(".");
     // Generate the new filename as userId-date
-    const newFilename = `${req.userId}-${date}${path.extname(
-      file.originalname
-    )}`;
+    const newFilename = `${finalFileName[0]}${path.extname(file.originalname)}`;
 
     cb(null, newFilename);
   },
@@ -126,14 +133,13 @@ routes.get("/getPDF/:dir/:filename", (req, res) => {
     console.log("DATA", fileStream.pipe(res));
   } else {
     return res.send("File Not Found");
-
   }
   // res.send("Ok");
 });
 
 routes.get("/list-all-pdfs", (req, res) => {
-  console.log("hi");
   const uploadsDir = path.join(__dirname, "uploads");
+
   fs.readdir(uploadsDir, (err, files) => {
     if (err) {
       console.error(err);
@@ -142,66 +148,66 @@ routes.get("/list-all-pdfs", (req, res) => {
 
     const pdf = [];
     const dir = [];
-    files.forEach((Files) => {
-      // console.log(Files)
-      dir.push({ name: Files });
-      const folderPath = path.join(__dirname, "uploads", Files);
+
+    files.map((file) => {
+      const folderPath = path.join(uploadsDir, file);
+
+      // Check if the path is a directory
       if (fs.statSync(folderPath).isDirectory()) {
-        const files = fs.readdirSync(folderPath);
-        const pdfFilesInUserFolder = files.filter((file) =>
+        dir.push({ name: file }); // Push directory name to the dir array
+
+        // Read all files within the directory
+        const userFiles = fs.readdirSync(folderPath);
+        console.log(userFiles);
+
+        // Filter out PDF files
+        const pdfFilesInUserFolder = userFiles.filter((file) =>
           file.endsWith(".pdf")
         );
-        pdfFilesInUserFolder.forEach((files) => {
-          pdf.push({ user: Files, filename: files });
+
+        // Push each PDF file found to the pdf array
+        pdfFilesInUserFolder.forEach((pdfFile) => {
+          pdf.push({ user:file, filename: pdfFile });
         });
       }
     });
-
     console.log(pdf);
     res.json({ data: pdf, dir: dir });
   });
 });
 
-const sendEmail = async (email) => {
-  const transporter = mailer.createTransport({
-    service: "gmail.com",
-    host: "smtp.gmail.com",
-    port: 465,
-    secure: false,
-    requireTLS: true,
-    auth: {
-      user: process.env.USER_ID,
-      pass: process.env.USER_PASS,
-    },
-  });
+// const sendEmail = async (email) => {
+//   const transporter = mailer.createTransport({
+//     service: "gmail.com",
+//     host: "smtp.gmail.com",
+//     port: 465,
+//     secure: false,
+//     requireTLS: true,
+//     auth: {
+//       user: process.env.USER_ID,
+//       pass: process.env.USER_PASS,
+//     },
+//   });
 
-  const mailOptions = {
-    from: "ADYPU.com",
-    to: email,
-    subject: "Research Paper Upload successfull",
-    text: `Paper Uploaded Successfully`,
-  };
+//   const mailOptions = {
+//     from: "ADYPU.com",
+//     to: email,
+//     subject: "Research Paper Upload successfull",
+//     text: `Paper Uploaded Successfully`,
+//   };
 
-  try {
-    console.log("Email", email);
-    await transporter.sendMail(mailOptions);
-    console.log("Mail Sent successfully to user");
-  } catch (error) {
-    console.log("Failed to send email", error);
-  }
-};
-
-routes.post("/v1/sendEmail", async (req, res) => {
-  sendEmail(req.body.email);
-  return res.send({ Message: "Email Sent Successfully" });
-});
-
-// routes.post("/v1/uploadPDF", upload.single("file"), (req, res) => {
-//   // console.log('Email:', req.body.email); // Access and log the email address
-//   if (!req.body.email) {
-//     return res.send("Email Address Not Valid");
+//   try {
+//     console.log("Email", email);
+//     await transporter.sendMail(mailOptions);
+//     console.log("Mail Sent successfully to user");
+//   } catch (error) {
+//     console.log("Failed to send email", error);
 //   }
-//   res.send("Files Uploaded");
+// };
+
+// routes.post("/v1/sendEmail", async (req, res) => {
+//   sendEmail(req.body.email);
+//   return res.send({ Message: "Email Sent Successfully" });
 // });
 
 routes.get("/directories", (req, res) => {
@@ -268,7 +274,7 @@ routes.get("/fetchHomePagePdf", async (req, res) => {
           if (fileParts.length > 1) {
             const fileDateStr = fileParts.slice(5).join("-").split(".")[0]; // Extract date part from filename
             const fileDate = new Date(fileDateStr);
-            console.log(fileDateStr)
+            console.log(fileDateStr);
 
             // Check if the file date is within the last three months
             if (fileDate >= threeMonthsAgo && fileDate <= currentDate) {
@@ -299,16 +305,20 @@ routes.get("/fetchHomePagePdf", async (req, res) => {
   }
 });
 
-routes.post("/api/uploadPdf", upload.single("pdf"), (req, res) => {
+routes.post("/v1/uploadPaper", upload.single("pdf"), (req, res) => {
+  // console.log(req.file)
   if (!req.file) {
     return res.status(400).send("No file uploaded.");
   }
-
   res.status(200).send("File uploaded successfully");
 });
 
-routes.post("/TestAPI",(req,res)=>{
-  res.send("Api Working")
-})
+routes.get("/v1/getAllPaper", async (req, res) => {
+  res.send(200);
+});
+
+routes.post("/TestAPI", (req, res) => {
+  res.send("Api Working");
+});
 
 module.exports = routes;
