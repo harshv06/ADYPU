@@ -5,14 +5,11 @@ const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
 const { v4: uuidv4 } = require("uuid");
-const { time } = require("console");
+const User = require("./Models/User");
 require("dotenv").config();
 
-// Define allowed file types (in this case, only PDFs)
-const ALLOWED_FILE_TYPES = ["application/pdf"];
-
-// Max file size (e.g., 10MB)
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+var userID = "";
+var userID2 = "";
 
 const pdfSchema = new mongoose.Schema({
   name: String,
@@ -25,10 +22,13 @@ const generateUserId = () => uuidv4();
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     // Ensure userId is correctly generated or provided
-    if (!req.userId) {
-      req.userId = generateUserId(); // Generate or fetch a valid userId
-    }
-
+    // if (!req.userId) {
+    //   userID = generateUserId(); // Generate or fetch a valid userId
+    //   req.userId = userID;
+    // }
+    userID = generateUserId(); // Generate or fetch a valid userId
+    req.userId = userID;
+    console.log("userID: ", userID);
     // Get the current timestamp
     const timestamp = Date.now(); // e.g., 1693567890123 (milliseconds)
 
@@ -60,195 +60,21 @@ const storage = multer.diskStorage({
     const filename = TempFilename.split(" ").join("");
     cb(null, filename);
   },
-
 });
 
 // File filter to allow only PDF files
 const fileFilter = (req, file, cb) => {
-  if (file.mimetype === 'application/pdf') {
+  if (file.mimetype === "application/pdf") {
     cb(null, true); // Accept PDF files
   } else {
-    cb(new Error('Only PDF files are allowed'), false); // Reject non-PDF files
+    cb(new Error("Only PDF files are allowed"), false); // Reject non-PDF files
   }
 };
-
 
 const upload = multer({
   storage: storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // Limit file size to 5MB
-  fileFilter: fileFilter
-});
-
-routes.get("/v1/latest3Papers", async (req, res) => {
-  // console.log("Hi")
-  const dest = path.join(__dirname, "uploads");
-  try {
-    const directories = await fs.promises.readdir(dest, {
-      withFileTypes: true,
-    });
-    let files = [];
-    for (const dir of directories) {
-      // console.log(dir)
-      if (dir.isDirectory()) {
-        console.log("Yes");
-        const filesInDir = await fs.promises.readdir(
-          path.join(dest, dir.name),
-          { withFileTypes: true }
-        );
-        filesInDir.forEach((file) => {
-          console.log("Files:", file);
-          if (file.isFile() && file.name.endsWith(".jpg")) {
-            files.push({
-              name: file.name,
-              path: path.join("uploads", dir.name, file.name),
-              time: fs
-                .statSync(path.join(dest, dir.name, file.name))
-                .mtime.getTime(),
-            });
-          }
-        });
-      }
-    }
-
-    files.sort((a, b) => b.time - a.time);
-    files = files.slice(0, 3);
-    console.log(files);
-    res.json(
-      files.map((file) => ({
-        name: file.name,
-        url: `http://${req.headers.host}/${file.path}`,
-      }))
-    );
-  } catch (error) {
-    console.error("Failed to read directories:", error);
-    res.status(500).send("Error reading paper files.");
-  }
-});
-
-routes.get("/getPDF/:dir/:filename", (req, res) => {
-  // console.log("hi harsh");
-  // console.log(req.params)
-  const { dir, filename } = req.params;
-  const filepath = path.join(__dirname, "uploads", dir, filename);
-
-  if (fs.existsSync(filepath)) {
-    res.setHeader("Content-Type", "application/pdf");
-    const fileStream = fs.createReadStream(filepath);
-    fileStream.pipe(res);
-    console.log("DATA", fileStream.pipe(res));
-  } else {
-    return res.send("File Not Found");
-  }
-  // res.send("Ok");
-});
-
-routes.get("/list-all-pdfs", (req, res) => {
-  const uploadsDir = path.join(__dirname, "uploads");
-
-  fs.readdir(uploadsDir, (err, files) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ message: "Error listing files" });
-    }
-
-    const pdf = [];
-    const dir = [];
-
-    files.map((file) => {
-      const folderPath = path.join(uploadsDir, file);
-
-      // Check if the path is a directory
-      if (fs.statSync(folderPath).isDirectory()) {
-        dir.push({ name: file }); // Push directory name to the dir array
-
-        // Read all files within the directory
-        const userFiles = fs.readdirSync(folderPath);
-        console.log(userFiles);
-
-        // Filter out PDF files
-        const pdfFilesInUserFolder = userFiles.filter((file) =>
-          file.endsWith(".pdf")
-        );
-
-        // Push each PDF file found to the pdf array
-        pdfFilesInUserFolder.forEach((pdfFile) => {
-          pdf.push({ user: file, filename: pdfFile });
-        });
-      }
-    });
-    console.log(pdf);
-    res.json({ data: pdf, dir: dir });
-  });
-});
-
-// const sendEmail = async (email) => {
-//   const transporter = mailer.createTransport({
-//     service: "gmail.com",
-//     host: "smtp.gmail.com",
-//     port: 465,
-//     secure: false,
-//     requireTLS: true,
-//     auth: {
-//       user: process.env.USER_ID,
-//       pass: process.env.USER_PASS,
-//     },
-//   });
-
-//   const mailOptions = {
-//     from: "ADYPU.com",
-//     to: email,
-//     subject: "Research Paper Upload successfull",
-//     text: `Paper Uploaded Successfully`,
-//   };
-
-//   try {
-//     console.log("Email", email);
-//     await transporter.sendMail(mailOptions);
-//     console.log("Mail Sent successfully to user");
-//   } catch (error) {
-//     console.log("Failed to send email", error);
-//   }
-// };
-
-// routes.post("/v1/sendEmail", async (req, res) => {
-//   sendEmail(req.body.email);
-//   return res.send({ Message: "Email Sent Successfully" });
-// });
-
-routes.get("/directories", (req, res) => {
-  const uploadsDir = path.join(__dirname, "uploads");
-
-  // Read the contents of the uploads directory
-  fs.readdir(uploadsDir, (err, files) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).json({ message: "Error listing directories" });
-    }
-
-    // Filter out only directories
-    const directories = files.filter((file) =>
-      fs.statSync(path.join(uploadsDir, file)).isDirectory()
-    );
-    console.log(directories);
-    res.json(directories);
-  });
-});
-
-routes.get("/files/:directoryName", (req, res) => {
-  const directoryName = req.params.directoryName;
-  const directoryPath = path.join(__dirname, "uploads", directoryName);
-
-  // Read the contents of the directory
-  fs.readdir(directoryPath, (err, files) => {
-    if (err) {
-      console.error(err);
-      return res
-        .status(500)
-        .json({ message: "Error listing files in directory" });
-    }
-
-    res.json(files);
-  });
+  fileFilter: fileFilter,
 });
 
 routes.get("/fetchHomePagePdf", async (req, res) => {
@@ -310,15 +136,43 @@ routes.get("/fetchHomePagePdf", async (req, res) => {
   }
 });
 
+routes.post("/saveUser", async (req, res) => {
+  console.log(req.body);
+  res.send("done");
+});
+
 // API to upload PDF file
-routes.post("/v1/uploadPaper", upload.single("pdf"), (req, res) => {
+routes.post("/v1/uploadPaper", upload.single("pdf"), async (req, res) => {
   // Validate if a file is uploaded
   if (!req.file) {
-    return res.status(400).json({ error: "No file uploaded or invalid file type. Please upload a PDF." });
+    return res.status(400).json({
+      error: "No file uploaded or invalid file type. Please upload a PDF.",
+    });
   }
+  const { authors, number, email } = req.body;
+  console.log(authors, number, email, userID);
+  const newUser = new User({
+    userID,
+    authors,
+    number,
+    email,
+  });
 
-  // Successful upload
-  res.status(200).json({ message: "File uploaded successfully", file: req.file });
+  try {
+    await newUser.save();
+    res
+      .status(200)
+      .json({ message: "File uploaded successfully", file: req.file });
+    userID = "";
+    console.log("done");
+  } catch (error) {
+    console.error("Error saving user:", error);
+    res
+      .status(500)
+      .json({
+        error: "Error saving user Please Enter Unique Email And Phone Number",
+      });
+  }
 });
 
 // Error handling middleware
@@ -328,21 +182,120 @@ routes.use((err, req, res, next) => {
     return res.status(400).json({ error: err.message });
   } else if (err) {
     // An unknown error occurred when uploading.
-    return res.status(500).json({ error: "An unknown error occurred during file upload." });
+    return res
+      .status(500)
+      .json({ error: "An unknown error occurred during file upload." });
   }
   next();
 });
 
 routes.get("/v1/getAllPaper", async (req, res) => {
-  res.send(200);
+  const directoryPath = path.join(__dirname, "uploads");
+  const allFiles = [];
+
+  try {
+    const userDirs = await fs.promises.readdir(directoryPath);
+    
+    // Loop over user directories and process files
+    const filePromises = userDirs.map(async (userID) => {
+      var id=userID.split("-").slice(0,5);
+      id=id.join("-").toString();
+      console.log(id);
+      const userDirPath = path.join(directoryPath, userID);
+      const files = await fs.promises.readdir(userDirPath);
+      const user=await User.findOne({userID:id})
+      for (const file of files) {
+        const filePath = path.join(userDirPath, file);
+        const fileStats = await fs.promises.stat(filePath); // Get file stats to access timestamps
+        // console.log("File:",file)
+        if (path.extname(file) === ".pdf") {
+          var fileName=file.split(".")[0];
+          fileName=fileName.split("-")[0];
+          // console.log("File:",fileName)
+          allFiles.push({
+            path: filePath,
+            mtime: fileStats.mtime, // Last modified time
+            name:fileName,
+            author:user.authors
+          });
+        }
+      }
+    });
+
+    // Wait for all file processing promises to resolve
+    await Promise.all(filePromises);
+
+    // Check if any files were found
+    if (allFiles.length > 0) {
+      return res.status(200).json(allFiles);
+    } else {
+      return res.status(404).json({ error: "No PDF files found." });
+    }
+  } catch (err) {
+    console.error("Error reading directories:", err); // Corrected variable name
+    return res.status(500).json({ error: "Unable to read directories" });
+  }
 });
 
-routes.post("/TestAPI", (req, res) => {
-  res.send("Api Working");
-});
+routes.get("/getLatestPDFMeta", async (req, res) => {
+  try {
+    const directoryPath = path.join(__dirname, "uploads"); // Adjust to your directory structure
+    let latestFile = null;
+    let latestTimestamp = 0;
 
-routes.post("/TestAPI2", (req, res) => {
-  res.send("Api Working");
+    // Read all files in the uploads directory
+    const userDirs = fs.readdirSync(directoryPath);
+    console.log(userDirs);
+    // Iterate through each user directory
+    userDirs.forEach((userDir) => {
+      const userDirPath = path.join(directoryPath, userDir);
+      const files = fs.readdirSync(userDirPath);
+      // console.log(files)
+      files.forEach((file) => {
+        // Extract the timestamp from the filename (assuming format: filename-timestamp.pdf)
+        const fileParts = file.split("-");
+        // console.log(fileParts)
+        if (fileParts.length > 1) {
+          const timestamp = parseInt(
+            fileParts[fileParts.length - 1].split(".")[0]
+          );
+          // console.log(fileParts)
+          // Check if this file has the latest timestamp
+          if (timestamp > latestTimestamp) {
+            latestTimestamp = timestamp;
+            var temp = userDir.split("-");
+            temp.pop();
+            userID2 = temp.join("-").toString();
+            console.log(userID2);
+            latestFile = path.join(userDirPath, file);
+          }
+        }
+      });
+    });
+
+    // If a file was found, send the file path and metadata
+    if (latestFile) {
+      const user = await User.findOne({ userID: userID2 });
+      console.log(user)
+      var fileName=path.basename(latestFile).split(".")[0];
+      fileName=fileName.split("-")[0]
+      console.log(fileName)
+      const additionalData = {
+        message: "This is the latest PDF file",
+        fileName: fileName,
+        filePath: `${latestFile}`, // or wherever the file can be accessed from
+        authors:user.authors,
+      };
+      return res.status(200).json(additionalData);
+    } else {
+      return res.status(404).json({ error: "No PDF found" });
+    }
+  } catch (err) {
+    console.error("Error reading directories:", err);
+    return res
+      .status(500)
+      .json({ error: "An error occurred while fetching the PDF metadata" });
+  }
 });
 
 routes.get("/getLatestPDF", async (req, res) => {
@@ -409,10 +362,10 @@ routes.get("/getLatest3PDF", async (req, res) => {
         const filePath = path.join(userDirPath, file);
         const fileStats = await fs.promises.stat(filePath); // Get file stats to access timestamps
 
-        if (path.extname(file) === '.pdf') {
+        if (path.extname(file) === ".pdf") {
           allFiles.push({
             path: filePath,
-            mtime: fileStats.mtime // Last modified time
+            mtime: fileStats.mtime, // Last modified time
           });
         }
       }
@@ -437,7 +390,7 @@ routes.get("/getLatest3PDF", async (req, res) => {
   }
 });
 
-routes.get('/getAnyPDF', (req, res) => {
+routes.get("/getAnyPDF", (req, res) => {
   const filePath = req.query.filePath; // Get the file path from the query string
   if (!filePath) {
     return res.status(400).json({ error: "File path not provided" });
@@ -457,6 +410,14 @@ routes.get('/getAnyPDF', (req, res) => {
       }
     });
   });
+});
+
+routes.post("/TestAPI", (req, res) => {
+  res.send("Api Working");
+});
+
+routes.post("/TestAPI2", (req, res) => {
+  res.send("Api Working");
 });
 
 module.exports = routes;

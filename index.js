@@ -6,6 +6,10 @@ const bodyParser = require("body-parser");
 const path = require("path");
 
 require("dotenv").config();
+require('./DB')
+require('./Models/User')
+
+
 const app = express();
 app.use(express.urlencoded({ extended: false }));
 const routes = require("./Routes");
@@ -13,6 +17,7 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(routes);
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
 
 app.post("/deploy", (req, res) => {
   const payload = req.body;
