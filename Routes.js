@@ -57,8 +57,8 @@ const storage = multer.diskStorage({
     const TempFilename = `${originalFileName}-${timestamp}${path.extname(
       file.originalname
     )}`;
-    const filename = TempFilename.split(" ").join("");
-    cb(null, filename);
+    // const filename = TempFilename.split(" ").join("");
+    cb(null, TempFilename);
   },
 });
 
@@ -207,11 +207,12 @@ routes.get("/v1/getAllPaper", async (req, res) => {
       for (const file of files) {
         const filePath = path.join(userDirPath, file);
         const fileStats = await fs.promises.stat(filePath); // Get file stats to access timestamps
-        // console.log("File:",file)
+        console.log("user:",user)
         if (path.extname(file) === ".pdf") {
           var fileName=file.split(".")[0];
+          console.log("File:",fileName)
           fileName=fileName.split("-")[0];
-          // console.log("File:",fileName)
+          console.log("File:",fileName)
           allFiles.push({
             path: filePath,
             mtime: fileStats.mtime, // Last modified time
@@ -227,7 +228,8 @@ routes.get("/v1/getAllPaper", async (req, res) => {
 
     // Check if any files were found
     if (allFiles.length > 0) {
-      return res.status(200).json(allFiles);
+      console.log(allFiles.reverse())
+      return res.status(200).json(allFiles.reverse());
     } else {
       return res.status(404).json({ error: "No PDF files found." });
     }
@@ -254,6 +256,7 @@ routes.get("/getLatestPDFMeta", async (req, res) => {
       files.forEach((file) => {
         // Extract the timestamp from the filename (assuming format: filename-timestamp.pdf)
         const fileParts = file.split("-");
+        // console.log("File Parts:",fileParts)
         // console.log(fileParts)
         if (fileParts.length > 1) {
           const timestamp = parseInt(
@@ -315,6 +318,7 @@ routes.get("/getLatestPDF", async (req, res) => {
       files.forEach((file) => {
         // Extract the timestamp from the filename (assuming format: filename-timestamp.pdf)
         const fileParts = file.split("-");
+        console.log(fileParts)
         if (fileParts.length > 1) {
           const timestamp = parseInt(
             fileParts[fileParts.length - 1].split(".")[0]
